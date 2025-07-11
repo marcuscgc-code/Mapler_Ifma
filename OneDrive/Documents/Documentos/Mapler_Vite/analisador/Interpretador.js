@@ -1,5 +1,5 @@
 // Arquivo: Interpretador.js (VERSÃO CORRIGIDA)
-import { Vetor } from './vetor.js';
+import { Vetor } from '../vetor.js';
 import { Ambiente } from '../ambiente.js';
 // Em Interpretador.js
 import { obterTipoDoValor, converterInputString } from '../checadorTipos.js'; // <-- importe a nova função
@@ -12,143 +12,123 @@ export class Interpretador {
   }
 
   async interpretar(ast) {
+    if (!ast) {
+        this.erro("Erro de sintaxe impediu a execucao.");
+        return;
+    }
     this.ambiente = new Ambiente();
+    
     try {
-      if (ast.tipo === "Modulo") {
-        console.log("[Interpretador] Entrando no loop de execução...");
-        for (const [index, comando] of ast.corpo.declaracoes.entries()) {
-            console.log(`[Interpretador] Loop ${index}: Executando comando tipo '${comando.tipo}'...`);
-            await this.executarDeclaracao(comando);
-            console.log(`[Interpretador] Loop ${index}: Comando tipo '${comando.tipo}' finalizado.`);
+      const declaracoes = ast.corpo.declaracoes;
+      for (const comando of declaracoes) {
+        if (comando.tipo === "VarDeclaracoes" || comando.tipo === "Modulo") {
+          await this.executarDeclaracao(comando);
         }
-        console.log("[Interpretador] Fim do loop de execução.");
-      } else {
-        this.erro("AST inválida: tipo de raiz desconhecido");
+      }
+      for (const comando of declaracoes) {
+        if (comando.tipo !== "VarDeclaracoes" && comando.tipo !== "Modulo") {
+          await this.executarDeclaracao(comando);
+        }
       }
     } catch (erro) {
       this.erro(erro.message);
     }
   }
-
  
 
-   async executarDeclaracao(declaracao) {
+  // Em Interpretador.js
+
+  async executarDeclaracao(declaracao) {
+    // Verificação de segurança
     if (!declaracao) return;
+
+    // O SWITCH COMPLETO com todos os cases necessários
     switch (declaracao.tipo) {
-      case "Ler": {
-        console.log(`[Interpretador] Entrou no 'case "Ler"' para a variavel '${declaracao.variavel.lexema}'.`);
-        
-        // Passo 1: Cria a Promise e ARMAZENA a função para 'acordá-la' no 'this.resolverInput'.
-        // Agora o "papel e a caneta" estão prontos.
-        const promiseDoInput = new Promise((resolve) => {
-            this.resolverInput = resolve;
-        });
-
-        // Passo 2: AGORA SIM, com tudo preparado, notifica a UI que estamos prontos para receber o input.
-        // É o mesmo que gritar "Me ligue!".
-        this.eventosService.notificar("INPUT_SOLICITADO");
-
-        // Passo 3: Pausa a execução (await) e espera a UI chamar o this.resolverInput.
-        console.log("[Interpretador] Pausando execucao e esperando a Promise...");
-        const valorLido = await promiseDoInput;
-        console.log(`[Interpretador] Promise resolvida! Valor lido: '${valorLido}'.`);
-
-        const tipoVariavel = this.ambiente.tipos.get(declaracao.variavel.lexema);
-        if (!tipoVariavel) {
-            throw new Error(`Variavel '${declaracao.variavel.lexema}' nao foi declarada.`);
+      case "VarDeclaracoes":
+        for (const variavel of declaracao.variaveis) {
+          let valorInicial = null;
+          if (variavel.dimensoes && variavel.dimensoes.length > 0) {
+            valorInicial = new Vetor(variavel.tipoDado.tipo, variavel.dimensoes);
+          }
+          this.ambiente.definir(variavel.nome.lexema, variavel.tipoDado.tipo, valorInicial);
         }
-        
-        const valorConvertido = converterInputString(valorLido, tipoVariavel);
-        console.log(`[Interpretador] Valor convertido para: '${valorConvertido}'. Atribuindo à variável...`);
-        this.ambiente.atribuir(declaracao.variavel, valorConvertido);
-        console.log("[Interpretador] Variavel atribuida com sucesso. Saindo do case 'Ler'.");
         break;
-      }
+
+      case "Expressao":
+        this.avaliarExpressao(declaracao.expressao);
+        break;
 
       case "Escreva":
         const valores = declaracao.expressoes.map(expr => {
-            const valorAvaliado = this.avaliarExpressao(expr);
-            if (valorAvaliado === null) return "nulo";
-            if (valorAvaliado === undefined) return "indefinido";
-            // Adicionado para converter 'true' e 'false' para "verdadeiro" e "falso"
-            if (typeof valorAvaliado === 'boolean') {
-                return valorAvaliado ? 'verdadeiro' : 'falso';
-            }
-            return valorAvaliado;
+            const val = this.avaliarExpressao(expr);
+            if (typeof val === 'boolean') return val ? 'verdadeiro' : 'falso';
+            return val ?? 'nulo';
         });
-        const linhaCompleta = valores.join("");
-        this.exibirSaida(linhaCompleta);
+        this.eventosService.notificar("ESCREVER", valores.join(""));
         break;
 
       case "Se":
-        this.executarSe(declaracao);
-        break;
-
-      case "Bloco":
-        for (const cmd of declaracao.declaracoes) {
-          this.executarDeclaracao(cmd);
+        const condicaoSe = this.avaliarExpressao(declaracao.condicao);
+        if (condicaoSe) {
+            await this.executarBloco(declaracao.entao, this.ambiente);
+        } else if (declaracao.senao) {
+            await this.executarBloco(declaracao.senao, this.ambiente);
         }
         break;
 
       case "Enquanto":
         while (this.avaliarExpressao(declaracao.condicao)) {
-          this.executarDeclaracao(declaracao.corpo);
+          await this.executarBloco(declaracao.corpo, this.ambiente);
         }
         break;
-
-      case "Para":
-        this.executarPara(declaracao);
-        break;
-
+      
       case "Repita":
         do {
-          this.executarDeclaracao(declaracao.corpo);
+          await this.executarBloco(declaracao.corpo, this.ambiente);
         } while (!this.avaliarExpressao(declaracao.condicao));
         break;
 
-      case "Ler": {
-        this.eventosService.notificar("INPUT_SOLICITADO");
-        
-        const valorLido = await new Promise((resolve) => {
-            this.resolverInput = resolve; 
-        });
-
-        // A lógica complexa de conversão foi movida!
-        const tipoVariavel = this.ambiente.tipos.get(declaracao.variavel.lexema);
-        if (!tipoVariavel) {
-            throw new Error(`Variavel '${declaracao.variavel.lexema}' nao foi declarada.`);
+      case "Para":
+        // A lógica do 'para' já está contida na AST, então só precisamos executar
+        await this.avaliarExpressao(declaracao.atribuicao);
+        while (this.avaliarExpressao(declaracao.condicao)) {
+            await this.executarBloco(declaracao.corpo, this.ambiente);
+            await this.avaliarExpressao(declaracao.incremento);
         }
-        
-        // Apenas delegamos o trabalho para o checador de tipos
-        const valorConvertido = converterInputString(valorLido, tipoVariavel);
+        break;
 
+      case "Ler": {
+        const promiseDoInput = new Promise((resolve) => { this.resolverInput = resolve; });
+        this.eventosService.notificar("INPUT_SOLICITADO");
+        const valorLido = await promiseDoInput;
+        const tipoVariavel = this.ambiente.tipos.get(declaracao.variavel.lexema);
+        const valorConvertido = converterInputString(valorLido, tipoVariavel);
         this.ambiente.atribuir(declaracao.variavel, valorConvertido);
         break;
       }
 
-      default:
-        // Para garantir que todos os outros comandos funcionem
-        // Cole os outros cases aqui se você os removeu sem querer
-        const cases = ["VarDeclaracoes", "Expressao", "Escreva", "Se", "Bloco", "Enquanto", "Para", "Repita"];
-        if(cases.includes(declaracao.tipo)){
-            // Simulação para os outros métodos que não são async
-            // Esta parte é apenas para garantir que o resto funcione, o ideal é ter todos os cases aqui
-            if(this[`executar${declaracao.tipo}`]){
-                this[`executar${declaracao.tipo}`](declaracao);
-            } else if (declaracao.tipo === "Expressao"){
-                this.avaliarExpressao(declaracao.expressao)
-            } else if (declaracao.tipo === "VarDeclaracoes"){
-                for (const variavel of declaracao.variaveis) {
-                    let valorInicial = null;
-                    if (variavel.dimensoes && variavel.dimensoes.length > 0) {
-                        valorInicial = new Vetor(variavel.tipoDado.tipo, variavel.dimensoes);
-                    }
-                    this.ambiente.definir(variavel.nome.lexema, variavel.tipoDado.tipo, valorInicial);
-                }
-            }
+      case "Modulo": {
+        const modulo = new ModuloChamavel(declaracao);
+        this.ambiente.definir(declaracao.nome.lexema, 'TIPO_MODULO', modulo);
+        break;
+      }
+
+      case "ChamadaModulo": {
+        const moduloChamavel = this.ambiente.obter(declaracao.nome);
+        if (moduloChamavel && moduloChamavel instanceof ModuloChamavel) {
+          await moduloChamavel.chamar(this, this.ambiente);
         } else {
-             this.erro(`Declaração desconhecida: ${declaracao.tipo}`);
+          throw new Error(`Erro: '${declaracao.nome.lexema}' nao e um modulo chamavel.`);
         }
+        break;
+      }
+
+      case "Bloco":
+        await this.executarBloco(declaracao, this.ambiente);
+        break;
+
+      default:
+        this.erro(`Declaracao desconhecida: ${declaracao.tipo}`);
     }
   }
 
