@@ -10,35 +10,38 @@ export class AnalisadorSintatico {
   }
   // O Parse que vai gerar a AST arvore completa -- incluir variaveis, corpo e fim
  
-  parse(tokens) {
+ parse(tokens) {
     this.tokens = tokens;
     this.index = 0;
     const declaracoes = [];
     try {
-      while (!this.isFim()) {
+      // Loop para consumir todas as declarações de alto nível (variaveis e modulos)
+      while (!this.checar(TiposToken.INICIO) && !this.isFim()) {
         declaracoes.push(this.declaracaoDeNivelSuperior());
       }
+
+      // Consome o bloco principal 'inicio...fim.'
+      this.consumirToken(TiposToken.INICIO, "Esperado 'inicio' para comecar o programa.");
+      while (!this.isFim() && !this.checar(TiposToken.FIM)) {
+        declaracoes.push(this.declaracao());
+      }
+      this.consumirToken(TiposToken.FIM, "Esperado 'fim' para encerrar o programa.");
+      this.consumirToken(TiposToken.PONTO, "Esperado '.' no final do programa.");
+
       return new Decl.Modulo(1, { lexema: 'principal', linha: 1 }, new Decl.Bloco(1, declaracoes));
     } catch (erro) {
-      this.eventosService.notificar('ERRO', erro);
       return null;
     }
   }
 
   declaracaoDeNivelSuperior() {
-    if (this.checar(TiposToken.VARIAVEIS)) {
-      this.avancar();
+    if (this.isTokenTypeIgualA(TiposToken.VARIAVEIS)) {
       return this.declaracaoVariaveis();
     }
-    if (this.checar(TiposToken.TIPO_MODULO)) {
-      return this.declaracao();
+    if (this.isTokenTypeIgualA(TiposToken.TIPO_MODULO)) {
+      return this.declaracaoModulo();
     }
-    if (this.checar(TiposToken.INICIO)) {
-      return this.declaracao();
-    }
-    // Se chegou aqui, algo está fora de ordem.
-    this.avancar(); // Evita loop infinito
-    return null;
+    throw this.erro(this.espiar(), "Instrucao invalida fora do bloco 'inicio...fim'.");
   }
 //23/06
 parseModulo() {
