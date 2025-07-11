@@ -262,21 +262,14 @@ declaracaoVariaveis() {
 // -------------------------------------
 
 declaracao() {
-    try {
-      console.log('Analisando token:', this.espiar());
-      if (this.isTokenTypeIgualA(TiposToken.SE)) return this.seDeclaracao();
-      if (this.isTokenTypeIgualA(TiposToken.PARA)) return this.paraDeclaracao();
-      if (this.isTokenTypeIgualA(TiposToken.ENQUANTO)) return this.enquantoDeclaracao();
-      if (this.isTokenTypeIgualA(TiposToken.REPITA)) return this.repitaDeclaracao();
-      if (this.isTokenTypeIgualA(TiposToken.ESCREVER)) return this.escreverDeclaracao();
-      if (this.isTokenTypeIgualA(TiposToken.LER)) return this.lerDeclaracao();
-       if (this.isTokenTypeIgualA(TiposToken.TIPO_MODULO)) return this.declaracaoModulo();
-  
-      return this.expressaoDeclaracao();
-    } catch (err) {
-      this.sincronizar();
-      return null;
-    }
+    // Este método agora só analisa o que está DENTRO de um bloco
+    if (this.isTokenTypeIgualA(TiposToken.SE)) return this.seDeclaracao();
+    if (this.isTokenTypeIgualA(TiposToken.ENQUANTO)) return this.enquantoDeclaracao();
+    if (this.isTokenTypeIgualA(TiposToken.PARA)) return this.paraDeclaracao();
+    if (this.isTokenTypeIgualA(TiposToken.REPITA)) return this.repitaDeclaracao();
+    if (this.isTokenTypeIgualA(TiposToken.ESCREVER)) return this.escreverDeclaracao();
+    if (this.isTokenTypeIgualA(TiposToken.LER)) return this.lerDeclaracao();
+    return this.expressaoDeclaracao();
   }
   
   bloco() {
