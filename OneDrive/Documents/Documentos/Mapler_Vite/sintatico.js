@@ -249,28 +249,44 @@ declaracaoVariaveis() {
     }
     throw this.erro(this.espiar(), 'Tipo inválido.');
   }
+analisar() {
+  const nome = new Token(TiposToken.IDENTIFICADOR, "principal", null, 1);
+  const corpo = this.blocoPrincipal();
+  return new Modulo(nome, corpo);
+}
 
- blocoPrincipal() {
+blocoPrincipal() {
   const declaracoes = [];
 
-  while (!this.estaNoFinal()) {
-    if (this.verificarTipoAtual(TiposToken.VARIAVEIS)) {
-      this.avancar(); // consome 'variaveis'
-      declaracoes.push(...this.declaracoesVariaveis()); // função que reconhece idade: inteiro;
+  // Bloco 'variaveis' (opcional)
+  if (this.verificarTipoAtual(TiposToken.VARIAVEIS)) {
+    this.avancar(); // consome 'variaveis'
+    while (
+      !this.estaNoFinal() &&
+      !this.verificarTipoAtual(TiposToken.INICIO)
+    ) {
+      declaracoes.push(...this.declaracoesVariaveis());
     }
-
-    if (this.verificarTipoAtual(TiposToken.INICIO)) {
-      this.avancar(); // consome 'inicio'
-      while (!this.verificarTipoAtual(TiposToken.FIM)) {
-        declaracoes.push(this.declaracao()); // comandos do corpo principal
-      }
-      this.consumir(TiposToken.FIM, "Esperado 'fim' após corpo do programa.");
-      this.consumir(TiposToken.PONTO, "Esperado '.' após 'fim'.");
-      break;
-    }
-
-    this.avancar(); // consome tokens inválidos e evita loop infinito
   }
+
+  // Bloco 'inicio' (obrigatório)
+  if (!this.verificarTipoAtual(TiposToken.INICIO)) {
+    this.erro(this.tokenAtual(), "Esperado 'inicio' após declarações de variáveis.");
+  }
+
+  this.avancar(); // consome 'inicio'
+
+  while (
+    !this.estaNoFinal() &&
+    !this.verificarTipoAtual(TiposToken.FIM)
+  ) {
+    const decl = this.declaracao();
+    if (decl !== null) declaracoes.push(decl);
+  }
+
+  // consome 'fim' e '.'
+  this.consumir(TiposToken.FIM, "Esperado 'fim' para finalizar o programa.");
+  this.consumir(TiposToken.PONTO, "Esperado '.' após 'fim'.");
 
   return new Bloco(declaracoes);
 }
