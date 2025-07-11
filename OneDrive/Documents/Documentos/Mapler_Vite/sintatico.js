@@ -10,7 +10,7 @@ export class AnalisadorSintatico {
   }
   // O Parse que vai gerar a AST arvore completa -- incluir variaveis, corpo e fim
  
-  parse(tokens) {
+   parse(tokens) {
     this.tokens = tokens;
     this.index = 0;
     const declaracoes = [];
@@ -18,26 +18,32 @@ export class AnalisadorSintatico {
       while (!this.isFim()) {
         declaracoes.push(this.declaracaoDeNivelSuperior());
       }
-      return new Decl.Modulo(1, { lexema: 'principal', linha: 1 }, new Decl.Bloco(1, declaracoes));
+      return new Decl.Modulo(1, { lexema: 'principal', linha: 1 }, new Decl.Bloco(1, declaracoes.filter(d => d !== null)));
     } catch (erro) {
-      // Se houver um erro de sintaxe, retorna nulo, o que fará o teste do interpretador falhar.
+      this.eventosService.notificar('ERRO', erro);
       return null;
     }
   }
 
-   declaracaoDeNivelSuperior() {
-    if (this.isTokenTypeIgualA(TiposToken.VARIAVEIS)) {
-      return this.declaracaoVariaveis();
-    }
-    if (this.isTokenTypeIgualA(TiposToken.TIPO_MODULO)) {
-      return this.declaracaoModulo();
-    }
-    if (this.isTokenTypeIgualA(TiposToken.INICIO)) {
-      return this.blocoPrincipal();
-    }
-    if (this.isFim()) return null; // Ignora o token EOF no final
+    declaracaoDeNivelSuperior() {
+    try {
+      if (this.checar(TiposToken.VARIAVEIS)) {
+        this.avancar();
+        return this.declaracaoVariaveis();
+      }
+      if (this.checar(TiposToken.TIPO_MODULO)) {
+        return this.declaracao();
+      }
+      if (this.checar(TiposToken.INICIO)) {
+        return this.blocoPrincipal();
+      }
+      if (this.isFim()) return null;
 
-    throw this.erro(this.espiar(), "Instrucao invalida. Programas devem iniciar com 'variaveis', 'modulo' ou 'inicio'.");
+      throw this.erro(this.espiar(), "Instrucao invalida. Programas devem conter blocos 'variaveis', 'modulo' ou 'inicio'.");
+    } catch(e) {
+      this.sincronizar();
+      return null;
+    }
   }
   
 //23/06
@@ -245,27 +251,43 @@ declaracaoVariaveis() {
   }
 
  blocoPrincipal() {
-      const linha = this.anterior().linha;
-      const declaracoes = [];
-      while(!this.isFim() && !this.checar(TiposToken.FIM)) {
-          declaracoes.push(this.declaracao());
+  const declaracoes = [];
+
+  while (!this.estaNoFinal()) {
+    if (this.verificarTipoAtual(TiposToken.VARIAVEIS)) {
+      this.avancar(); // consome 'variaveis'
+      declaracoes.push(...this.declaracoesVariaveis()); // função que reconhece idade: inteiro;
+    }
+
+    if (this.verificarTipoAtual(TiposToken.INICIO)) {
+      this.avancar(); // consome 'inicio'
+      while (!this.verificarTipoAtual(TiposToken.FIM)) {
+        declaracoes.push(this.declaracao()); // comandos do corpo principal
       }
-      this.consumirToken(TiposToken.FIM, "Esperado 'fim' para encerrar o programa.");
-      this.consumirToken(TiposToken.PONTO, "Esperado '.' no final do programa.");
-      return new Decl.Bloco(linha, declaracoes);
+      this.consumir(TiposToken.FIM, "Esperado 'fim' após corpo do programa.");
+      this.consumir(TiposToken.PONTO, "Esperado '.' após 'fim'.");
+      break;
+    }
+
+    this.avancar(); // consome tokens inválidos e evita loop infinito
   }
+
+  return new Bloco(declaracoes);
+}
+
+
 // -------------------------------------
 // Declarações principais (corpo)
 // -------------------------------------
 
-declaracao() {
-    // Este método agora só analisa o que está DENTRO de um bloco
+  declaracao() {
     if (this.isTokenTypeIgualA(TiposToken.SE)) return this.seDeclaracao();
     if (this.isTokenTypeIgualA(TiposToken.ENQUANTO)) return this.enquantoDeclaracao();
     if (this.isTokenTypeIgualA(TiposToken.PARA)) return this.paraDeclaracao();
     if (this.isTokenTypeIgualA(TiposToken.REPITA)) return this.repitaDeclaracao();
     if (this.isTokenTypeIgualA(TiposToken.ESCREVER)) return this.escreverDeclaracao();
     if (this.isTokenTypeIgualA(TiposToken.LER)) return this.lerDeclaracao();
+    if (this.isTokenTypeIgualA(TiposToken.TIPO_MODULO)) return this.declaracaoModulo();
     return this.expressaoDeclaracao();
   }
   
