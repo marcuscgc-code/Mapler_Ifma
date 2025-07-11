@@ -1,12 +1,9 @@
 import { describe, it, expect } from 'vitest';
-
-// Para testar o parser, precisamos do Léxico para gerar os tokens
-// e das classes de Declaração para verificar o tipo dos nós da AST.
-import { AnalisadorLexico } from '@/lexico.js';
-import { AnalisadorSintatico } from '@/sintatico.js';
-import * as Decl from '@/declaracao.js';
-import { TiposToken } from '@/tiposToken.js';
-import { EventosService } from '@/eventosService.js';
+import { AnalisadorLexico } from '../lexico.js';
+import { AnalisadorSintatico } from '../sintatico.js';
+import * as Decl from '../declaracao.js';
+import { TiposToken } from '../tiposToken.js';
+import { EventosService } from '../eventosService.js';
 
 describe('AnalisadorSintatico', () => {
 

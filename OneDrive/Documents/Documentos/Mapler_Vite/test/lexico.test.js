@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { AnalisadorLexico } from '@/lexico.js';
-import { TiposToken } from '@/tiposToken.js';
-import { EventosService } from '@/eventosService.js';
-
+import { AnalisadorLexico } from '../lexico.js';
+import { TiposToken } from '../tiposToken.js';
+import { EventosService } from '../eventosService.js';
 describe('AnalisadorLexico', () => {
   
   it('deve tokenizar uma sequencia simples de palavras-chave corretamente', () => {

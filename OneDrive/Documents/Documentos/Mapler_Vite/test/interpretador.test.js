@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Interpretador } from '@/Interpretador.js';
-import { AnalisadorLexico } from '@/lexico.js';
-import { AnalisadorSintatico } from '@/sintatico.js';
-import { EventosService } from '@/eventosService.js';
+import { Interpretador } from '../Interpretador.js';
+import { AnalisadorLexico } from '../lexico.js';
+import { AnalisadorSintatico } from '../sintatico.js';
+import { EventosService } from '../eventosService.js';
 
 // Função auxiliar para não repetir código. Ela executa o pipeline completo.
 async function executarCodigo(codigo) {
