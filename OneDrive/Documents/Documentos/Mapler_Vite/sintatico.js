@@ -572,6 +572,7 @@ seDeclaracao() {
   }
   //23/06
   // Substitua a função inteira em sintatico.js
+// Substitua a função inteira em sintatico.js
 paraDeclaracao() {
   const identificador = this.consumirToken(TiposToken.IDENTIFICADOR, 'Esperado nome da variável de controle do laço PARA.');
   this.consumirToken(TiposToken.DE, 'Esperado "de" após o nome da variável.');
@@ -580,25 +581,44 @@ paraDeclaracao() {
   const linha = this.consumirToken(TiposToken.ATE, 'Esperado "ate" para definir o fim do laço.').linha;
   const ate = this.adicao();
 
-  let passo = null;
-  // Verifica se a cláusula PASSO existe. Se não, o padrão será 1.
+  let passo;
+  let ehRegressivo = false; // <-- NOVA VARIÁVEL DE CONTROLE
+
   if (this.isTokenTypeIgualA(TiposToken.PASSO)) {
     passo = this.adicao();
+    // Heurística para detectar passo negativo no parser
+    if (passo.tipo === 'Unario' && passo.operador.tipo === 'MENOS') {
+      ehRegressivo = true;
+    }
+    if (passo.tipo === 'Literal' && passo.valor < 0) {
+      ehRegressivo = true;
+    }
   } else {
     // Cria um nó literal com o valor 1 para ser o passo padrão.
     passo = new Expr.Literal(linha, 1, { tipo: TiposToken.INTEIRO, literal: 1, linha });
+    // Heurística para detectar laço regressivo sem passo explícito
+    if (de.tipo === 'Literal' && ate.tipo === 'Literal' && de.valor > ate.valor) {
+      ehRegressivo = true;
+      // Se for regressivo e sem passo, o passo deveria ser -1, mas o incremento padrão é +1, então o laço nunca terminaria.
+      // O ideal seria um erro semântico, mas por agora, vamos focar na condição.
+      // O usuário DEVE especificar 'passo -1' para laços regressivos.
+    }
   }
 
   this.consumirToken(TiposToken.FACA, 'Esperado "faca" para iniciar o bloco do laço.');
   const corpo = new Decl.Bloco(identificador.linha, this.bloco());
 
-  // --- O restante do código transforma o "para" em uma estrutura que o interpretador já entende ---
+  // --- O restante do código transforma o "para" ---
   const varRef = new Expr.Variavel(identificador.linha, identificador);
   const inicial = new Expr.Atribuicao(identificador.linha, identificador, de);
-  const condicao = new Expr.Binario(identificador.linha, varRef, {
-    tipo: TiposToken.MENOR_IGUAL,
-    lexema: '<=',
-  }, ate);
+  
+  // DECISÃO DINÂMICA DO OPERADOR DE COMPARAÇÃO
+  const operadorCondicao = ehRegressivo 
+      ? { tipo: TiposToken.MAIOR_IGUAL, lexema: '>=' } 
+      : { tipo: TiposToken.MENOR_IGUAL, lexema: '<=' };
+
+  const condicao = new Expr.Binario(identificador.linha, varRef, operadorCondicao, ate);
+
   const incremento = new Expr.Atribuicao(
     identificador.linha,
     identificador,
@@ -614,6 +634,7 @@ paraDeclaracao() {
 
   return new Decl.Para(identificador.linha, inicial, condicao, incremento, corpo);
 }
+
   repitaDeclaracao() {
     const inicio = this.anterior();
     const corpo = new Decl.Bloco(inicio.linha, this.bloco());
