@@ -99,7 +99,7 @@ export class Interpretador {
 
       case "Para":
         // A lógica do 'para' já está contida na AST, então só precisamos executar
-        await this.avaliarExpressao(declaracao.atribuicao);
+        await this.avaliarExpressao(declaracao.inicializacao);
         while (this.avaliarExpressao(declaracao.condicao)) {
             await this.executarBloco(declaracao.corpo, this.ambiente);
             await this.avaliarExpressao(declaracao.incremento);
