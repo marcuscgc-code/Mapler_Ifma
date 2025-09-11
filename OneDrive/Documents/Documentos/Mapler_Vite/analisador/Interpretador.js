@@ -34,7 +34,16 @@ export class Interpretador {
       this.erro(erro.message);
     }
   }
- 
+ // Cole esta função dentro da sua classe Interpretador, em Interpretador.js
+
+ async executarBloco(bloco, ambiente) {
+  // A implementação de um 'bloco' na sua AST é um objeto 
+  // com uma propriedade 'declaracoes' que é um array.
+  for (const declaracao of bloco.declaracoes) {
+    // Executa cada comando dentro do bloco
+    await this.executarDeclaracao(declaracao);
+  }
+}
 
   // Em Interpretador.js
 
