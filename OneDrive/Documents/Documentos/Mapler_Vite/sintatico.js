@@ -10,21 +10,51 @@ export class AnalisadorSintatico {
   }
   // O Parse que vai gerar a AST arvore completa -- incluir variaveis, corpo e fim
  
-  parse(tokens) {
-    this.tokens = tokens;
-    this.index = 0;
-    const declaracoes = [];
-    try {
-      while (!this.isFim()) {
-        declaracoes.push(this.declaracaoDeNivelSuperior());
-      }
-      return new Decl.Modulo(1, { lexema: 'principal', linha: 1 }, new Decl.Bloco(1, declaracoes));
-    } catch (erro) {
-      this.eventosService.notificar('ERRO', erro);
-      return null;
-    }
-  }
+// Substitua a função 'parse' antiga por esta.
+// Ela simplesmente chama a lógica correta que você já escreveu.
+parse(tokens) {
+  this.tokens = tokens;
+  this.index = 0;
+  const declaracoes = [];
 
+  try {
+      // 1. VERIFICA E CONSOME A DECLARAÇÃO DO MÓDULO
+      if (this.isTokenTypeIgualA(TiposToken.TIPO_MODULO)) {
+          // Se encontrou 'modulo', espera um nome para ele, mas não faz nada com o nome ainda.
+          this.consumirToken(TiposToken.IDENTIFICADOR, 'Esperado nome do módulo.');
+      }
+
+      // 2. Continua aceitando um bloco de variáveis (se existir)
+      if (this.isTokenTypeIgualA(TiposToken.VARIAVEIS)) {
+          while (!this.isFim() && !this.checar(TiposToken.INICIO)) {
+              declaracoes.push(this.declaracaoVariaveis());
+          }
+      }
+
+      // 3. AGORA, ele é OBRIGADO a encontrar um 'inicio'
+      this.consumirToken(TiposToken.INICIO, 'Esperado "inicio" após as declarações de variáveis.');
+
+      // 4. Loop principal que só roda DENTRO do bloco inicio...fim
+      while (!this.isFim() && !this.checar(TiposToken.FIM)) {
+          const decl = this.declaracao();
+          if (decl !== null) declaracoes.push(decl);
+      }
+
+      // 5. E no final, ele é OBRIGADO a encontrar um 'fim'
+      this.consumirToken(TiposToken.FIM, 'Esperado "fim" para encerrar o programa.');
+      
+      // Consome 'modulo' e o ponto e vírgula final, se existirem
+      this.isTokenTypeIgualA(TiposToken.TIPO_MODULO);
+      this.isTokenTypeIgualA(TiposToken.PONTO_VIRGULA);
+
+      // Retorna o módulo completo e correto
+      return new Decl.Modulo(1, { lexema: 'principal', linha: 1 }, new Decl.Bloco(1, declaracoes));
+
+  } catch (erro) {
+      this.eventosService.notificar('ERRO', erro.message);
+      return null;
+  }
+}
   declaracaoDeNivelSuperior() {
     if (this.checar(TiposToken.VARIAVEIS)) {
       this.avancar();
