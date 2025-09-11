@@ -178,7 +178,16 @@ export class Interpretador {
         // Delega a lógica de obter o valor para a própria classe Vetor
         return vetor.obter(indices);
       }
-
+      case "Unario": {
+        const direita = this.avaliarExpressao(expr.direita);
+        switch (expr.operador.tipo) {
+            case "NAO":
+                return !direita;
+            case "MENOS":
+                return -direita;
+        }
+        break; // Adicionado por segurança
+      }
       case "Atribuicao":
         const valor = this.avaliarExpressao(expr.valor);
         this.ambiente.atribuir(expr.nome, valor);
@@ -194,7 +203,17 @@ export class Interpretador {
         vetor.atribuir(indices, valorAtribuir);
         return valorAtribuir;
       }
+      case "Logico": {
+        const esquerda = this.avaliarExpressao(expr.esquerda);
 
+        // Implementa o curto-circuito
+        if (expr.operador.tipo === "OU") {
+            if (esquerda) return true;
+        } else { // para o operador 'E'
+            if (!esquerda) return false;
+        }
+        return this.avaliarExpressao(expr.direita);
+      }
       case "Binario":
         const esquerda = this.avaliarExpressao(expr.esquerda);
         const direita = this.avaliarExpressao(expr.direita);
